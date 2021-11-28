@@ -100,7 +100,7 @@ class InvConv2dLU(nn.Module):
         self.register_buffer("l_mask", torch.from_numpy(l_mask))
         self.register_buffer("s_sign", torch.sign(w_s))
         self.register_buffer("l_eye", torch.eye(l_mask.shape[0]))
-        self.w_l = nn.Parameter(w_l)
+        self.w_l = nn.Parameter(w_l) # optim.step 会更新的部分
         self.w_s = nn.Parameter(logabs(w_s))
         self.w_u = nn.Parameter(w_u)
 
