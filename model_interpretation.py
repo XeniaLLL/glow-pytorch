@@ -228,7 +228,25 @@ def gaussian_log_p(x, mean, log_std):
 
 
 def gaussian_sample(eps, mean, log_std):
+    '''eps: the small '''
     return mean + torch.exp(log_std) * eps
+
+def squeeze2d(input, factor=2):
+    assert factor>=1
+    if factor ==1:
+        return input
+    b_size, n_channel, height, width = input.shape #todo 直接转换channel位置是否合理
+    squeezed = input.view(b_size, n_channel, height // factor, factor, width // factor, factor)
+    squeezed = squeezed.permute(0, 1, 5,3, 4 ,2)
+    out = squeezed.contiguous().view(b_size, n_channel * factor*factor,  height // factor, width // factor)
+    return out
+
+def unsqueeze2d(input, factor=2):
+    b_size, n_channel, height, width = input.shape
+    unsqueezed = input.view(b_size, n_channel // factor//factor, factor, factor, height, width)
+    unsqueezed = unsqueezed.permute(0, 1, 5, 4, 3,2) #... todo 转回去的位置
+    unsqueezed = unsqueezed.contiguous().view(b_size, n_channel //factor//factor, height * factor, width * factor)
+    return unsqueezed
 
 
 class GlowBlock(nn.Module):
@@ -253,6 +271,11 @@ class GlowBlock(nn.Module):
             self.prior = ZeroConv2d(in_channel * 4, in_channel * 8)
 
     def forward(self, input):
+        '''
+
+        :param input:
+        :return: out_values, logdet, gaussian log probability,
+        '''
         b_size, n_channel, height, width = input.shape
         squeezed = input.view(b_size, n_channel, height // 2, 2, width // 2, 2)
         squeezed = squeezed.permute(0, 1, 3, 5, 2, 4)
@@ -268,6 +291,13 @@ class GlowBlock(nn.Module):
             log_p = gaussian_log_p(out, mean, log_std)
             log_p = log_p.view(b_size, -1).sum(1)
             z_new = out
+        else:
+            zero=torch.zeros_like(out)
+            mean, log_std= self.prior(zero).chunck(2,1)
+            log_p=gaussian_log_p(out, mean, log_std)
+            log_p = log_p.view(b_size,-1).sum(1)
+            z_new=out
+
         return out, logdet, log_p, z_new
 
     def reverse(self, output, eps=None, reconstruct=False):
@@ -319,6 +349,11 @@ class Glow(nn.Module):
         self.blocks.append(GlowBlock(n_channel, n_flow, split=False, affine=affine))
 
     def forward(self, input):
+        '''
+
+        :param input:
+        :return: log_p_sum, logdet, z_outs
+        '''
         log_p_sum = 0
         logdet = 0
         out = input

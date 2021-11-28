@@ -246,7 +246,7 @@ class Block(nn.Module):
 
     def forward(self, input):
         b_size, n_channel, height, width = input.shape
-        squeezed = input.view(b_size, n_channel, height // 2, 2, width // 2, 2)
+        squeezed = input.view(b_size, n_channel, height // 2, 2, width // 2, 2) # height & width 减半,扩展出连个维度,然后通过置换,将两个2放到最后
         squeezed = squeezed.permute(0, 1, 3, 5, 2, 4)
         out = squeezed.contiguous().view(b_size, n_channel * 4, height // 2, width // 2)
         logdet = 0
